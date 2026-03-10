@@ -1,204 +1,99 @@
-# Academic Paper MCP Server [REF-FINDER-MCP]
+# ref-finder-mcp
 
-논문 검색부터 참조문헌 생성까지 end-to-end 자동화를 제공하는 MCP 서버
+논문 검색부터 참조문헌 생성까지 end-to-end 자동화를 제공하는 MCP 서버.
+arXiv, Google Scholar, Semantic Scholar를 통합 검색하고, BibTeX/APA citation을 자동 생성합니다.
 
-## 현재 상태: Phase 1.5
-
-✅ **구현 완료**:
-- arXiv 논문 검색
-- Google Scholar 논문 검색 (NEW!)
-- Google Scholar 저자 정보 조회 (NEW!)
-- BibTeX/APA citation 생성
-- 세션 기반 논문 관리 (메모리)
-- FastMCP 3.0 기반 서버
-
-🚧 **예정** (Phase 2):
-- Semantic Scholar 통합
-- Crossref 통합
-- 중복 제거
-- 파일 기반 세션 저장
-
-## 설치
+## 설치 및 실행
 
 ```bash
-# uv로 의존성 설치
 uv sync
-
-# 개발 모드로 실행
 uv run python -m ref_finder_mcp.server
 ```
 
-## MCP 도구
+## MCP 도구 목록
 
-### 1. `search_papers`
-멀티소스에서 논문 검색 (arXiv, Google Scholar)
+| 도구 | 설명 |
+|------|------|
+| `search_papers` | 멀티소스 논문 검색 (arXiv, Google Scholar, Semantic Scholar) |
+| `get_paper_details` | 논문 상세 정보 조회 |
+| `generate_citation` | BibTeX / APA citation 생성 |
+| `save_paper` | 논문을 세션에 저장 |
+| `list_saved_papers` | 저장된 논문 목록 조회 |
+| `remove_paper` | 저장된 논문 삭제 |
+| `export_bibliography` | 저장된 논문 전체를 BibTeX / APA / Markdown으로 export |
+| `get_author_info` | Google Scholar 기반 저자 정보 조회 |
+| `get_recommended_papers` | Semantic Scholar 기반 유사 논문 추천 |
 
-```python
-# arXiv에서 검색
-search_papers(
-    query="transformer attention",
-    sources=["arxiv"],
-    max_results=10,
-    categories=["cs.AI", "cs.LG"]
-)
+## 검색 소스
 
-# Google Scholar에서 검색
-search_papers(
-    query="deep learning",
-    sources=["google_scholar"],
-    max_results=10,
-    date_from="2020-01-01",
-    author="Yann LeCun"
-)
+| 소스 | ID prefix | 특징 |
+|------|-----------|------|
+| arXiv | `arxiv:` | 프리프린트 중심, 카테고리 필터 지원 |
+| Google Scholar | `scholar:` | 폭넓은 커버리지, 저자 검색 |
+| Semantic Scholar | `s2:` | 공식 API, citation count, 논문 추천 |
 
-# 여러 소스에서 동시 검색
-search_papers(
-    query="neural networks",
-    sources=["arxiv", "google_scholar"],
-    max_results=20
-)
+멀티소스 검색 시 arXiv ID / DOI / 제목 기반으로 자동 중복 제거됩니다.
+
+## 사용 예시
+
+### 논문 검색 + BibTeX 생성
+
+```
+"ReAct 논문 찾아서 BibTeX 만들어줘"
+
+→ search_papers(query="ReAct Synergizing Reasoning Acting", sources=["arxiv"])
+→ generate_citation(paper_id="arxiv:2210.03629", format="bibtex")
 ```
 
-### 2. `get_paper_details`
-논문 상세 정보 조회
+### 멀티소스 검색
 
-```python
-get_paper_details(paper_id="arxiv:2210.03629")
+```
+"transformer 관련 논문 arXiv랑 Semantic Scholar에서 찾아줘"
+
+→ search_papers(query="transformer", sources=["arxiv", "semantic_scholar"], max_results=20)
+  (중복 논문은 자동 병합)
 ```
 
-### 3. `generate_citation`
-Citation 생성 (BibTeX/APA)
+### 유사 논문 추천
 
-```python
-generate_citation(
-    paper_id="arxiv:2210.03629",
-    format="bibtex"
-)
+```
+"ReAct 논문이랑 비슷한 논문 추천해줘"
+
+→ get_recommended_papers(paper_id="arxiv:2210.03629", max_results=5)
 ```
 
-### 4. `save_paper`
-논문 저장
+### 저자 정보 조회
 
-```python
-save_paper(paper_id="arxiv:2210.03629")
+```
+"Geoffrey Hinton의 h-index와 주요 논문 알려줘"
+
+→ get_author_info(author_name="Geoffrey Hinton")
+  (소속, h-index, 인용 수, 주요 논문 등 반환)
 ```
 
-### 5. `list_saved_papers`
-저장된 논문 목록
-
-```python
-list_saved_papers()
-```
-
-### 6. `remove_paper`
-논문 삭제
-
-```python
-remove_paper(paper_id="arxiv:2210.03629")
-```
-
-### 7. `export_bibliography`
-참조문헌 일괄 export
-
-```python
-export_bibliography(format="bibtex")
-```
-
-### 8. `get_author_info`
-Google Scholar에서 저자 정보 조회
-
-```python
-get_author_info(author_name="Geoffrey Hinton")
-```
-
-반환 정보:
-- 소속 기관
-- 총 인용 수
-- h-index, i10-index
-- 연구 분야
-- 주요 논문 (상위 5개)
-
-## Claude Code 연동
+## MCP 클라이언트 연동
 
 ```json
-// .claude/mcp.json (project-scope)
 {
   "mcpServers": {
-    "academic": {
-      "command": "/opt/homebrew/bin/uv",
+    "ref-finder": {
+      "command": "uv",
       "args": [
         "run",
-        "--directory",
-        "/Users/a11706/mcp_library/ref-finder-mcp",
-        "python",
-        "-m",
-        "ref_finder_mcp.server"
+        "--directory", "/path/to/ref-finder-mcp",
+        "python", "-m", "ref_finder_mcp.server"
       ]
     }
   }
 }
 ```
 
-## 사용 예시
-
-### 예시 1: arXiv에서 논문 검색
-```
-[사용자] "ReAct 논문 찾아서 BibTeX 만들어줘"
-
-[Claude] (search_papers 실행)
-         "ReAct 논문을 찾았습니다: Yao et al., 2022"
-
-         (generate_citation 실행)
-         "@article{yao2022react,
-           title={ReAct: Synergizing Reasoning and Acting...},
-           author={Yao, Shunyu and Zhao, Jeffrey and ...},
-           year={2022},
-           ...
-         }"
-```
-
-### 예시 2: Google Scholar에서 저자 정보 조회
-```
-[사용자] "Geoffrey Hinton의 h-index와 주요 논문 알려줘"
-
-[Claude] (get_author_info 실행)
-         "Geoffrey Hinton:
-          - 소속: University of Toronto
-          - h-index: 176
-          - 총 인용 수: 500,000+
-          - 주요 논문:
-            1. ImageNet Classification with Deep CNNs (2012)
-            2. Deep Learning (2015)
-            ..."
-```
-
-### 예시 3: 멀티소스 검색
-```
-[사용자] "transformer 관련 최신 논문 arXiv랑 Google Scholar에서 찾아줘"
-
-[Claude] (search_papers 실행)
-         "arXiv와 Google Scholar에서 총 20개의 논문을 찾았습니다:
-
-          [arXiv]
-          1. Attention Is All You Need (2017)
-          ...
-
-          [Google Scholar]
-          1. BERT: Pre-training of Deep Bidirectional Transformers (2019)
-          ..."
-```
-
 ## 개발
 
 ```bash
-# Hot reload 개발 서버
-fastmcp dev src/ref_finder_mcp/server.py
-
-# 테스트 실행
-uv run pytest
-
-# 코드 포맷팅
-uv run ruff check --fix
+fastmcp dev src/ref_finder_mcp/server.py   # Hot reload 개발 서버
+uv run pytest                               # 테스트
+uv run ruff check --fix                     # 린트
 ```
 
 ## 라이선스

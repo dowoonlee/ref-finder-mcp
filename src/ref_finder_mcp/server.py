@@ -6,7 +6,9 @@ import sys
 
 from .clients.arxiv import ArxivClient
 from .clients.google_scholar import GoogleScholarClient
+from .clients.semantic_scholar import SemanticScholarClient
 from .services.citation import CitationGenerator
+from .utils.dedup import deduplicate_papers
 
 # FastMCP 서버 인스턴스 생성
 mcp = FastMCP("academic-paper-server")
@@ -14,9 +16,10 @@ mcp = FastMCP("academic-paper-server")
 # 클라이언트 및 서비스 초기화
 arxiv_client = ArxivClient()
 google_scholar_client = GoogleScholarClient()
+semantic_scholar_client = SemanticScholarClient()
 citation_gen = CitationGenerator()
 
-# 세션 스토리지 (메모리 기반 - Phase 2에서 파일 기반으로 전환)
+# 세션 스토리지 (메모리 기반, 세션 종료 시 초기화)
 saved_papers = {}
 
 
@@ -40,7 +43,7 @@ async def search_papers(
 
     Args:
         query: 검색 키워드 (예: "transformer attention mechanism")
-        sources: 검색할 소스 리스트 (지원: ["arxiv", "google_scholar"])
+        sources: 검색할 소스 리스트 (지원: ["arxiv", "google_scholar", "semantic_scholar"])
         max_results: 최대 결과 수 (기본: 10)
         date_from: 시작 날짜 (YYYY-MM-DD)
         date_to: 종료 날짜 (YYYY-MM-DD)
@@ -79,7 +82,27 @@ async def search_papers(
         )
         papers.extend(scholar_papers)
 
-    # Paper 객체를 딕셔너리로 변환
+    # Semantic Scholar 검색
+    if "semantic_scholar" in sources:
+        year_filter = None
+        if date_from and date_to:
+            year_filter = f"{date_from[:4]}-{date_to[:4]}"
+        elif date_from:
+            year_filter = f"{date_from[:4]}-"
+        elif date_to:
+            year_filter = f"-{date_to[:4]}"
+
+        s2_papers = await semantic_scholar_client.search(
+            query=query,
+            max_results=max_results,
+            year=year_filter,
+        )
+        papers.extend(s2_papers)
+
+    # 멀티소스 중복 제거
+    if len(sources) > 1:
+        papers = deduplicate_papers(papers)
+
     papers_dict = [paper.to_dict() for paper in papers]
 
     return {
@@ -96,7 +119,7 @@ async def get_paper_details(paper_id: str) -> dict:
     논문의 상세 정보를 조회합니다.
 
     Args:
-        paper_id: 논문 ID (예: "arxiv:2210.03629")
+        paper_id: 논문 ID (예: "arxiv:2210.03629", "s2:649def34f...")
 
     Returns:
         논문 상세 정보
@@ -107,6 +130,14 @@ async def get_paper_details(paper_id: str) -> dict:
     if paper_id.startswith("arxiv:"):
         arxiv_id = paper_id.replace("arxiv:", "")
         paper = await arxiv_client.get_paper(arxiv_id)
+
+        if paper:
+            return paper.to_dict()
+        else:
+            return {"error": f"Paper not found: {paper_id}"}
+    elif paper_id.startswith("s2:"):
+        s2_id = paper_id.replace("s2:", "")
+        paper = await semantic_scholar_client.get_paper(s2_id)
 
         if paper:
             return paper.to_dict()
@@ -305,6 +336,34 @@ async def get_author_info(author_name: str) -> dict:
         return {"error": f"Author not found: {author_name}"}
 
 
+@mcp.tool(annotations={"readOnly": True})
+async def get_recommended_papers(paper_id: str, max_results: int = 5) -> dict:
+    """
+    Semantic Scholar 기반으로 특정 논문과 유사한 추천 논문을 조회합니다.
+
+    Args:
+        paper_id: 기준 논문 ID (예: "s2:649def34f...", "arxiv:2210.03629")
+        max_results: 최대 결과 수 (기본: 5)
+
+    Returns:
+        추천 논문 리스트
+    """
+    sys.stderr.write(f"Getting recommended papers for: {paper_id}\n")
+
+    # s2: prefix가 있으면 제거, 아니면 그대로 전달 (S2 API가 arXiv ID 등도 지원)
+    lookup_id = paper_id.replace("s2:", "") if paper_id.startswith("s2:") else paper_id
+
+    papers = await semantic_scholar_client.get_recommended_papers(lookup_id, max_results)
+
+    if papers:
+        return {
+            "papers": [p.to_dict() for p in papers],
+            "total": len(papers),
+            "based_on": paper_id,
+        }
+    else:
+        return {"error": f"No recommendations found for: {paper_id}"}
+
+
 if __name__ == "__main__":
-    # FastMCP 서버 실행
     mcp.run()
