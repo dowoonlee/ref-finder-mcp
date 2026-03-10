@@ -1,7 +1,7 @@
 """Paper 모델 테스트"""
 
 import pytest
-from mcp_textref.models.paper import Paper
+from ref_finder_mcp.models.paper import Paper
 
 
 def test_paper_creation():

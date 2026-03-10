@@ -1,4 +1,4 @@
-# Academic Paper MCP Server (mcp-textref)
+# Academic Paper MCP Server [REF-FINDER-MCP]
 
 논문 검색부터 참조문헌 생성까지 end-to-end 자동화를 제공하는 MCP 서버
 
@@ -25,7 +25,7 @@
 uv sync
 
 # 개발 모드로 실행
-uv run python -m mcp_textref.server
+uv run python -m ref_finder_mcp.server
 ```
 
 ## MCP 도구
@@ -129,10 +129,10 @@ get_author_info(author_name="Geoffrey Hinton")
       "args": [
         "run",
         "--directory",
-        "/Users/a11706/mcp_library/mcp-textref",
+        "/Users/a11706/mcp_library/ref-finder-mcp",
         "python",
         "-m",
-        "mcp_textref.server"
+        "ref_finder_mcp.server"
       ]
     }
   }
@@ -192,7 +192,7 @@ get_author_info(author_name="Geoffrey Hinton")
 
 ```bash
 # Hot reload 개발 서버
-fastmcp dev src/mcp_textref/server.py
+fastmcp dev src/ref_finder_mcp/server.py
 
 # 테스트 실행
 uv run pytest

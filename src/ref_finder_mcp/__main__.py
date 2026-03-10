@@ -1,4 +1,4 @@
-"""MCP 서버 진입점 (python -m mcp_textref)"""
+"""MCP 서버 진입점 (python -m ref_finder_mcp)"""
 
 from .server import mcp
 

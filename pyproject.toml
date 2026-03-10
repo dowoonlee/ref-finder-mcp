@@ -1,5 +1,5 @@
 [project]
-name = "mcp-textref"
+name = "ref-finder-mcp"
 version = "0.1.0"
 description = "Academic paper search and citation MCP server"
 readme = "README.md"
@@ -41,3 +41,6 @@ target-version = "py311"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: 실제 API 호출이 필요한 통합 테스트 (네트워크 필요)",
+]
