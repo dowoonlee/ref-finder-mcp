@@ -1,77 +1,76 @@
 # ref-finder-mcp
 
-논문 검색부터 참조문헌 생성까지 end-to-end 자동화를 제공하는 MCP 서버.
-arXiv, Google Scholar, Semantic Scholar를 통합 검색하고, BibTeX/APA citation을 자동 생성합니다.
+An MCP server for end-to-end academic paper workflow — search across arXiv, Google Scholar, and Semantic Scholar, then auto-generate BibTeX/APA citations.
 
-## 설치 및 실행
+## Installation
 
 ```bash
 uv sync
 uv run python -m ref_finder_mcp.server
 ```
 
-## MCP 도구 목록
+## MCP Tools
 
-| 도구 | 설명 |
-|------|------|
-| `search_papers` | 멀티소스 논문 검색 (arXiv, Google Scholar, Semantic Scholar) |
-| `get_paper_details` | 논문 상세 정보 조회 |
-| `generate_citation` | BibTeX / APA citation 생성 |
-| `save_paper` | 논문을 세션에 저장 |
-| `list_saved_papers` | 저장된 논문 목록 조회 |
-| `remove_paper` | 저장된 논문 삭제 |
-| `export_bibliography` | 저장된 논문 전체를 BibTeX / APA / Markdown으로 export |
-| `get_author_info` | Google Scholar 기반 저자 정보 조회 |
-| `get_recommended_papers` | Semantic Scholar 기반 유사 논문 추천 |
+| Tool | Description |
+|------|-------------|
+| `search_papers` | Multi-source paper search (arXiv, Google Scholar, Semantic Scholar) |
+| `get_paper_details` | Retrieve detailed paper information |
+| `generate_citation` | Generate BibTeX / APA citations |
+| `save_paper` | Save a paper to the session |
+| `list_saved_papers` | List saved papers |
+| `remove_paper` | Remove a saved paper |
+| `export_bibliography` | Export all saved papers as BibTeX / APA / Markdown |
+| `get_author_info` | Look up author info via Google Scholar |
+| `get_recommended_papers` | Get similar paper recommendations via Semantic Scholar |
 
-## 검색 소스
+## Search Sources
 
-| 소스 | ID prefix | 특징 |
-|------|-----------|------|
-| arXiv | `arxiv:` | 프리프린트 중심, 카테고리 필터 지원 |
-| Google Scholar | `scholar:` | 폭넓은 커버리지, 저자 검색 |
-| Semantic Scholar | `s2:` | 공식 API, citation count, 논문 추천 |
+| Source | ID prefix | Notes |
+|--------|-----------|-------|
+| arXiv | `arxiv:` | Preprints, category filters |
+| Google Scholar | `scholar:` | Broad coverage, author search |
+| Semantic Scholar | `s2:` | Official API, citation counts, recommendations |
 
-멀티소스 검색 시 arXiv ID / DOI / 제목 기반으로 자동 중복 제거됩니다.
+Duplicates are automatically merged by arXiv ID / DOI / title when searching across multiple sources.
 
-## 사용 예시
+## Usage Examples
 
-### 논문 검색 + BibTeX 생성
+### Search + Generate BibTeX
 
 ```
-"ReAct 논문 찾아서 BibTeX 만들어줘"
+"Find the ReAct paper and generate BibTeX"
 
 → search_papers(query="ReAct Synergizing Reasoning Acting", sources=["arxiv"])
 → generate_citation(paper_id="arxiv:2210.03629", format="bibtex")
 ```
 
-### 멀티소스 검색
+### Multi-source Search
 
 ```
-"transformer 관련 논문 arXiv랑 Semantic Scholar에서 찾아줘"
+"Search transformer papers on arXiv and Semantic Scholar"
 
 → search_papers(query="transformer", sources=["arxiv", "semantic_scholar"], max_results=20)
-  (중복 논문은 자동 병합)
+  (duplicates are automatically merged)
 ```
 
-### 유사 논문 추천
+### Paper Recommendations
 
 ```
-"ReAct 논문이랑 비슷한 논문 추천해줘"
+"Recommend papers similar to the ReAct paper"
 
 → get_recommended_papers(paper_id="arxiv:2210.03629", max_results=5)
 ```
 
-### 저자 정보 조회
+### Author Info
 
 ```
-"Geoffrey Hinton의 h-index와 주요 논문 알려줘"
+"What's Geoffrey Hinton's h-index and top papers?"
 
 → get_author_info(author_name="Geoffrey Hinton")
-  (소속, h-index, 인용 수, 주요 논문 등 반환)
+  (returns affiliation, h-index, citation count, top publications, etc.)
 ```
 
-## MCP 클라이언트 연동
+## MCP Client Configuration
 
 ```json
 {
@@ -88,14 +87,14 @@ uv run python -m ref_finder_mcp.server
 }
 ```
 
-## 개발
+## Development
 
 ```bash
-fastmcp dev src/ref_finder_mcp/server.py   # Hot reload 개발 서버
-uv run pytest                               # 테스트
-uv run ruff check --fix                     # 린트
+fastmcp dev src/ref_finder_mcp/server.py   # Dev server with hot reload
+uv run pytest                               # Run tests
+uv run ruff check --fix                     # Lint
 ```
 
-## 라이선스
+## License
 
 MIT
