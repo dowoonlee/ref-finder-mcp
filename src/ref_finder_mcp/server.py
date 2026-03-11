@@ -5,6 +5,7 @@ from typing import Optional
 import sys
 
 from .clients.arxiv import ArxivClient
+from .clients.arxiv_html import ArxivHtmlClient
 from .clients.google_scholar import GoogleScholarClient
 from .clients.semantic_scholar import SemanticScholarClient
 from .services.citation import CitationGenerator
@@ -15,6 +16,7 @@ mcp = FastMCP("academic-paper-server")
 
 # 클라이언트 및 서비스 초기화
 arxiv_client = ArxivClient()
+arxiv_html_client = ArxivHtmlClient()
 google_scholar_client = GoogleScholarClient()
 semantic_scholar_client = SemanticScholarClient()
 citation_gen = CitationGenerator()
@@ -363,6 +365,85 @@ async def get_recommended_papers(paper_id: str, max_results: int = 5) -> dict:
         }
     else:
         return {"error": f"No recommendations found for: {paper_id}"}
+
+
+@mcp.tool(annotations={"readOnly": True})
+async def list_paper_sections(paper_id: str) -> dict:
+    """
+    arXiv 논문의 섹션(목차) 목록을 조회합니다.
+    AI가 먼저 목차를 확인한 뒤 필요한 섹션만 선택적으로 가져올 수 있습니다.
+
+    Args:
+        paper_id: arXiv 논문 ID (예: "arxiv:2401.04088")
+
+    Returns:
+        논문 제목과 섹션 목록 (id, title, level)
+    """
+    sys.stderr.write(f"Listing paper sections: {paper_id}\n")
+
+    if not paper_id.startswith("arxiv:"):
+        return {"error": "이 기능은 arXiv 논문만 지원합니다. paper_id는 'arxiv:' 접두사가 필요합니다."}
+
+    arxiv_id = paper_id.replace("arxiv:", "")
+    title = await arxiv_html_client.get_document_title(arxiv_id)
+
+    if title is None:
+        return {
+            "error": f"HTML 버전을 가져올 수 없습니다: {paper_id}. "
+            "이 논문은 ar5iv에서 HTML 변환이 제공되지 않을 수 있습니다.",
+        }
+
+    sections = await arxiv_html_client.get_sections(arxiv_id)
+
+    return {
+        "paper_id": paper_id,
+        "title": title,
+        "sections": sections,
+        "total_sections": len(sections),
+    }
+
+
+@mcp.tool(annotations={"readOnly": True})
+async def get_paper_section(paper_id: str, section_id: str) -> dict:
+    """
+    arXiv 논문의 특정 섹션 본문을 가져옵니다.
+    먼저 list_paper_sections로 목차를 확인한 뒤, 원하는 section_id를 지정하세요.
+
+    Args:
+        paper_id: arXiv 논문 ID (예: "arxiv:2401.04088")
+        section_id: 섹션 ID (예: "abstract", "S1", "S2.SS1", "bibliography")
+
+    Returns:
+        섹션 제목과 본문 텍스트 (LaTeX 수식 유지, 그림/표는 캡션만 포함)
+    """
+    sys.stderr.write(f"Getting paper section: {paper_id} / {section_id}\n")
+
+    if not paper_id.startswith("arxiv:"):
+        return {"error": "이 기능은 arXiv 논문만 지원합니다. paper_id는 'arxiv:' 접두사가 필요합니다."}
+
+    arxiv_id = paper_id.replace("arxiv:", "")
+    section = await arxiv_html_client.get_section_content(arxiv_id, section_id)
+
+    if section is None:
+        available = arxiv_html_client.get_available_section_ids(arxiv_id)
+        if available:
+            return {
+                "error": f"섹션을 찾을 수 없습니다: '{section_id}'",
+                "available_sections": available,
+                "hint": "list_paper_sections를 먼저 호출하여 유효한 section_id를 확인하세요.",
+            }
+        return {
+            "error": f"논문을 가져올 수 없습니다: {paper_id}. "
+            "이 논문은 ar5iv에서 HTML 변환이 제공되지 않을 수 있습니다.",
+        }
+
+    return {
+        "paper_id": paper_id,
+        "section_id": section["id"],
+        "title": section["title"],
+        "level": section["level"],
+        "content": section["content"],
+    }
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ from ref_finder_mcp.server import (
     list_saved_papers,
     remove_paper,
     export_bibliography,
+    list_paper_sections,
+    get_paper_section,
     saved_papers,
 )
 
@@ -130,4 +132,53 @@ class TestExportBibliography:
 
     async def test_export_empty(self):
         result = await export_bibliography(format="bibtex")
+        assert "error" in result
+
+
+MIXTRAL_PAPER_ID = "arxiv:2401.04088"
+
+
+class TestPaperSections:
+    async def test_list_sections(self):
+        result = await list_paper_sections(MIXTRAL_PAPER_ID)
+
+        assert "error" not in result
+        assert result["paper_id"] == MIXTRAL_PAPER_ID
+        assert "Mixtral" in result["title"]
+        assert result["total_sections"] > 0
+
+        ids = [s["id"] for s in result["sections"]]
+        assert "abstract" in ids
+
+        has_level_1 = any(s["level"] == 1 for s in result["sections"])
+        assert has_level_1
+
+    async def test_list_sections_non_arxiv(self):
+        result = await list_paper_sections("s2:some-id")
+        assert "error" in result
+
+    async def test_get_abstract(self):
+        result = await get_paper_section(MIXTRAL_PAPER_ID, "abstract")
+
+        assert "error" not in result
+        assert result["title"] == "Abstract"
+        assert "Mixtral" in result["content"]
+        assert len(result["content"]) > 50
+
+    async def test_get_introduction(self):
+        result = await get_paper_section(MIXTRAL_PAPER_ID, "S1")
+
+        assert "error" not in result
+        assert "Introduction" in result["title"]
+        assert len(result["content"]) > 100
+
+    async def test_get_invalid_section(self):
+        await list_paper_sections(MIXTRAL_PAPER_ID)
+        result = await get_paper_section(MIXTRAL_PAPER_ID, "NONEXISTENT")
+
+        assert "error" in result
+        assert "available_sections" in result
+
+    async def test_get_section_non_arxiv(self):
+        result = await get_paper_section("s2:some-id", "S1")
         assert "error" in result
